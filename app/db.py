@@ -16,7 +16,7 @@ DB_CONFIG = {
     "host":     "localhost",
     "database": "HMS",
     "user":     "postgres",
-    "password": "your_password"  # ← Set your PostgreSQL password here,# ← Change to your password
+    "password": "your_password",  # ← Set your PostgreSQL password here,# ← Change to your password
     "port":     5432
 }
 
