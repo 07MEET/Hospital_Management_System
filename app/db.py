@@ -83,7 +83,9 @@ def run_query(query: str, params=None, fetch=True):
         cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(query, params)
         if fetch:
-            return [dict(row) for row in cur.fetchall()]
+            rows =  [dict(row) for row in cur.fetchall()]
+            conn.commit()
+            return rows
         else:
             conn.commit()
             return True
