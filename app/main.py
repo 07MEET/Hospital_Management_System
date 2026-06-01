@@ -25,7 +25,7 @@ st.markdown(load_css(), unsafe_allow_html=True)
 NAV = {
     "Admin":         ["📊 Dashboard","👥 Patients","📅 Appointments","👨‍⚕️ Doctors","💊 Medicines","🚨 Fraud Alerts","📋 Audit Log","⚙️ Settings"],
     "Doctor":        ["📊 Dashboard","📅 My Appointments","🩺 Diagnose & Prescribe","🔬 Lab Orders"],
-    "Receptionist":  ["📊 Dashboard","🧑‍⚕️ Register Patient","📅 Book Appointment","📋 Today's Queue"],
+    "Receptionist": ["📊 Dashboard", "🧑‍⚕️ Register Patient", "👤 Patient Profile", "✏️ Update Patient", "📅 Book Appointment", "📋 Today's Queue"],
     "Lab_Tech":      ["📊 Dashboard","⏳ Pending Orders","✅ Enter Results"],
     "Pharmacist":    ["📊 Dashboard","💊 Dispense Medicine","📦 Inventory","⚠️ Low Stock"],
     "Billing_Staff": ["📊 Dashboard","🧾 Generate Bill","💳 Record Payment","🚨 Fraud Alerts"],
@@ -165,6 +165,8 @@ def route(user: dict, page: str):
         elif "Register"    in page: from pageviews.receptionist import show_register;  show_register(user)
         elif "Book"        in page: from pageviews.receptionist import show_book;      show_book(user)
         elif "Queue"       in page: from pageviews.receptionist import show_queue;     show_queue(user)
+        elif "Patient Profile" in page: from pageviews.receptionist import show_profile; show_profile(user)
+        elif "Update Patient" in page: from pageviews.receptionist import show_update_patient; show_update_patient(user)
 
     elif role == "Lab_Tech":
         if "Dashboard"     in page: from pageviews.lab_tech import show_dashboard; show_dashboard(user)

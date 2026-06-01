@@ -8,7 +8,7 @@ from validators import validate_text
 from auth import require_role
 
 def show_dashboard(user):
-    require_role(["Lab_Tech"])  
+    require_role(["Lab_Tech", "Admin"])  
     st.markdown('<p class="page-title">🔬 Lab Dashboard</p>', unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
     pending  = run_query_one("SELECT COUNT(*) as c FROM lab_orders WHERE status='Pending'")
@@ -22,7 +22,7 @@ def show_dashboard(user):
 
 
 def show_pending(user):
-    require_role(["Lab_Tech"])
+    require_role(["Lab_Tech", "Admin"])
     st.markdown('<p class="page-title">⏳ Pending Lab Orders</p>', unsafe_allow_html=True)
     orders = run_query("""
         SELECT lo.order_id, p.full_name AS patient, p.phone,
@@ -41,7 +41,7 @@ def show_pending(user):
 
 
 def show_results(user):
-    require_role(["Lab_Tech"])
+    require_role(["Lab_Tech", "Admin"])
     st.markdown('<p class="page-title">✅ Enter Lab Results</p>', unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 2])

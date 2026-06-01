@@ -9,7 +9,7 @@ from validators import validate_amount, validate_transaction_ref
 from auth import require_role
 
 def show_dashboard(user):
-    require_role(["Billing_Staff"])
+    require_role(["Billing_Staff", "Admin"])
     st.markdown('<p class="page-title">💰 Billing Dashboard</p>', unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     total  = run_query_one("SELECT COUNT(*) as c FROM bills")
@@ -25,7 +25,7 @@ def show_dashboard(user):
 
 
 def show_generate(user):
-    require_role(["Billing_Staff"])
+    require_role(["Billing_Staff", "Admin"])
     st.markdown('<p class="page-title">🧾 Generate Bill</p>', unsafe_allow_html=True)
 
     completed = run_query("""
@@ -74,7 +74,7 @@ def show_generate(user):
 
 
 def show_payment(user):
-    require_role(["Billing_Staff"])
+    require_role(["Billing_Staff", "Admin"])
     st.markdown('<p class="page-title">💳 Record Payment</p>', unsafe_allow_html=True)
 
     bills = run_query("""
@@ -144,7 +144,7 @@ def show_payment(user):
 
 
 def show_fraud(user):
-    require_role(["Billing_Staff"])
+    require_role(["Billing_Staff", "Admin"])
     st.markdown('<p class="page-title">🚨 Fraud Alerts</p>', unsafe_allow_html=True)
     alerts = run_query("SELECT * FROM vw_fraud_dashboard")
 
@@ -195,7 +195,7 @@ def show_fraud(user):
 
 
 def show(user, tab="dashboard"):
-    require_role(["Billing_Staff"])
+    require_role(["Billing_Staff", "Admin"])
     if tab=="fraud":    show_fraud(user)
     elif tab=="generate": show_generate(user)
     elif tab=="payment":  show_payment(user)

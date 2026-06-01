@@ -18,6 +18,7 @@ from validators import (validate_name, validate_email, validate_phone,
 from auth import require_role
 
 def show_dashboard(user):
+    require_role(["Receptionist", "Admin"])
     st.markdown('<p class="page-title">📊 Receptionist Dashboard</p>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
     t = run_query_one("SELECT COUNT(*) as c FROM patients")
@@ -26,12 +27,16 @@ def show_dashboard(user):
     col1.metric("Total Patients",        t['c'] if t else 0)
     col2.metric("Today's Appointments",  a['c'] if a else 0)
     col3.metric("Pending Today",         p['c'] if p else 0)
-    st.markdown("---")
-    show_queue(user)
-
+    upcoming = run_query_one("""
+    SELECT COUNT(*) as c
+    FROM appointments
+    WHERE appt_date = CURRENT_DATE
+    """)
+    st.info(f"📅 {upcoming['c']} appointments scheduled today")
+    st.info("📋 Use Today's Queue to manage appointments and cancellations.")
 
 def show_register(user):
-    require_role(["Receptionist"])
+    require_role(["Receptionist", "Admin"])
     st.markdown('<p class="page-title">🧑‍⚕️ Register New Patient</p>', unsafe_allow_html=True)
     st.caption("Fields marked * are required")
 
@@ -155,7 +160,7 @@ def show_register(user):
 
 
 def show_book(user):
-    require_role(["Receptionist"])
+    require_role(["Receptionist", "Admin"])
     st.markdown('<p class="page-title">📅 Book Appointment</p>', unsafe_allow_html=True)
 
     col1, col2 = st.columns([3, 2])
@@ -261,7 +266,7 @@ def show_book(user):
 
 
 def show_queue(user):
-    require_role(["Receptionist"])
+    require_role(["Receptionist", "Admin"])
     st.markdown('<p class="page-title">📋 Today\'s Queue</p>', unsafe_allow_html=True)
     st.caption(f"All appointments for {date.today().strftime('%d %B %Y')}")
 
@@ -312,7 +317,230 @@ def show_queue(user):
 
 
 def show(user, tab="queue"):
-    require_role(["Receptionist"])
+    require_role(["Receptionist", "Admin"])
     if tab == "patients":       show_register(user)
     elif tab == "appointments": show_book(user)
     else:                       show_queue(user)
+    
+def show_profile(user):
+    require_role(["Receptionist", "Admin"])
+
+    st.markdown('<p class="page-title">👤 Patient Profile</p>', unsafe_allow_html=True)
+
+    search = st.text_input(
+        "Search Patient",
+        placeholder="Enter patient name or phone number"
+    )
+
+    if search and len(search.strip()) >= 2:
+
+        patients = run_query("""
+            SELECT
+                p.patient_id,
+                p.full_name,
+                p.date_of_birth,
+                p.gender,
+                p.blood_group,
+                p.phone,
+                p.email,
+                p.address,
+                p.emergency_contact,
+                p.registration_date,
+                p.status,
+                i.provider_name,
+                i.policy_number,
+                i.coverage_amount,
+                i.expiry_date
+            FROM patients p
+            LEFT JOIN insurance i
+                ON p.insurance_id = i.insurance_id
+            WHERE LOWER(p.full_name) LIKE LOWER(%s)
+               OR p.phone LIKE %s
+            ORDER BY p.full_name
+        """, [f"%{search}%", f"%{search}%"])
+
+        if patients:
+
+            options = {
+                f"#{p['patient_id']} - {p['full_name']} ({p['phone']})": p
+                for p in patients
+            }
+
+            selected = st.selectbox(
+                "Select Patient",
+                [""] + list(options.keys())
+            )
+
+            if selected:
+
+                p = options[selected]
+
+                st.markdown("### Personal Information")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.write("**Patient ID:**", p["patient_id"])
+                    st.write("**Name:**", p["full_name"])
+                    st.write("**DOB:**", p["date_of_birth"])
+                    st.write("**Gender:**", p["gender"])
+                    st.write("**Blood Group:**", p["blood_group"])
+
+                with col2:
+                    st.write("**Phone:**", p["phone"])
+                    st.write("**Email:**", p["email"] or "N/A")
+                    st.write("**Status:**", p["status"])
+                    st.write("**Registered:**", p["registration_date"])
+
+                st.markdown("### Contact Information")
+
+                st.write("**Address:**", p["address"] or "N/A")
+                st.write("**Emergency Contact:**", p["emergency_contact"] or "N/A")
+
+                st.markdown("### Insurance Information")
+
+                if p["provider_name"]:
+                    st.write("**Provider:**", p["provider_name"])
+                    st.write("**Policy Number:**", p["policy_number"])
+                    st.write("**Coverage Amount:** ₹", p["coverage_amount"])
+                    st.write("**Expiry Date:**", p["expiry_date"])
+                else:
+                    st.info("No insurance details available.")
+
+        else:
+            st.warning("No patients found.")
+
+def show_update_patient(user):
+    require_role(["Receptionist", "Admin"])
+
+    st.markdown(
+        '<p class="page-title">✏️ Update Patient</p>',
+        unsafe_allow_html=True
+    )
+
+    search = st.text_input(
+        "Search Patient",
+        placeholder="Enter patient name or phone number"
+    )
+
+    if search and len(search.strip()) >= 2:
+
+        patients = run_query("""
+            SELECT
+                patient_id,
+                full_name,
+                date_of_birth,
+                gender,
+                blood_group,
+                phone,
+                email,
+                address,
+                emergency_contact,
+                status
+            FROM patients
+            WHERE LOWER(full_name) LIKE LOWER(%s)
+               OR phone LIKE %s
+            ORDER BY full_name
+        """, [f"%{search}%", f"%{search}%"])
+
+        if patients:
+
+            options = {
+                f"#{p['patient_id']} - {p['full_name']} ({p['phone']})": p
+                for p in patients
+            }
+
+            selected = st.selectbox(
+                "Select Patient",
+                [""] + list(options.keys())
+            )
+
+            if selected:
+
+                p = options[selected]
+
+                st.markdown("### Patient Information")
+
+                st.write(f"**Patient ID:** {p['patient_id']}")
+                st.write(f"**Name:** {p['full_name']}")
+                st.write(f"**DOB:** {p['date_of_birth']}")
+                st.write(f"**Gender:** {p['gender']}")
+                st.write(f"**Blood Group:** {p['blood_group']}")
+
+                st.markdown("---")
+                st.markdown("### Editable Information")
+
+                phone = st.text_input(
+                    "Phone",
+                    value=p["phone"] or ""
+                )
+
+                email = st.text_input(
+                    "Email",
+                    value=p["email"] or ""
+                )
+
+                address = st.text_area(
+                    "Address",
+                    value=p["address"] or ""
+                )
+
+                emergency_contact = st.text_input(
+                    "Emergency Contact",
+                    value=p["emergency_contact"] or ""
+                )
+
+                status = st.selectbox(
+                    "Status",
+                    ["Active", "Discharged"],
+                    index=0 if p["status"] == "Active" else 1
+                )
+
+                if st.button(
+                    "💾 Save Changes",
+                    type="primary",
+                    use_container_width=True
+                ):
+
+                    errors = []
+
+                    ok, msg = validate_phone(phone)
+                    if not ok:
+                        errors.append(msg)
+
+                    if email.strip():
+                        ok, msg = validate_email(email)
+                        if not ok:
+                            errors.append(msg)
+
+                    if errors:
+                        for e in errors:
+                            st.error(f"❌ {e}")
+                    else:
+                        try:
+
+                            run_query("""
+                                UPDATE patients
+                                SET
+                                    phone=%s,
+                                    email=%s,
+                                    address=%s,
+                                    emergency_contact=%s,
+                                    status=%s
+                                WHERE patient_id=%s
+                            """, [
+                                sanitize_phone(phone),
+                                sanitize_email(email) if email.strip() else None,
+                                sanitize_string(address) if address.strip() else None,
+                                sanitize_string(emergency_contact) if emergency_contact.strip() else None,
+                                status,
+                                p["patient_id"]
+                            ], fetch=False)
+
+                            st.success("✅ Patient updated successfully!")
+
+                        except Exception as e:
+                            st.error(f"❌ {e}")
+
+        else:
+            st.warning("No patients found.")
