@@ -39,7 +39,42 @@ def show_dashboard(user):
     col2.metric("Completed",      c['c'] if c else 0)
     col3.metric("Pending",        p['c'] if p else 0)
     st.markdown("---")
-    show_appointments(user)
+    upcoming = run_query("""
+    SELECT
+        a.appt_date,
+        a.appt_time,
+        p.full_name AS patient,
+        a.status
+    FROM appointments a
+    JOIN patients p
+        ON a.patient_id = p.patient_id
+    WHERE a.doctor_id = %s
+      AND a.appt_date >= CURRENT_DATE
+      AND a.status IN ('Pending', 'Confirmed')
+    ORDER BY a.appt_date, a.appt_time
+    LIMIT 5
+    """, [doc_id])
+
+    st.markdown("## 📅 Upcoming Appointments")
+
+    if upcoming:
+        import pandas as pd
+
+        df = pd.DataFrame(upcoming)
+
+        df["appt_date"] = pd.to_datetime(
+            df["appt_date"]
+        ).dt.strftime("%d-%b-%Y")
+
+        df["appt_time"] = df["appt_time"].astype(str).str[:5]
+
+        st.dataframe(
+            df,
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No upcoming appointments.")
 
 
 def show_appointments(user):
