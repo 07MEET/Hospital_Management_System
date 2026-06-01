@@ -9,7 +9,7 @@ Root causes:
   4. validate_appointment_time was not receiving appt_date for today check
 """
 import streamlit as st
-from datetime import date, timedelta
+from datetime import date, timedelta, time
 from db import run_query, run_query_one, call_procedure
 from validators import (validate_name, validate_email, validate_phone,
                         validate_dob, validate_appointment_date,
@@ -19,21 +19,78 @@ from auth import require_role
 
 def show_dashboard(user):
     require_role(["Receptionist", "Admin"])
-    st.markdown('<p class="page-title">📊 Receptionist Dashboard</p>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<p class="page-title">📊 Receptionist Dashboard</p>',
+        unsafe_allow_html=True
+    )
+
     col1, col2, col3 = st.columns(3)
-    t = run_query_one("SELECT COUNT(*) as c FROM patients")
-    a = run_query_one("SELECT COUNT(*) as c FROM appointments WHERE appt_date=CURRENT_DATE")
-    p = run_query_one("SELECT COUNT(*) as c FROM appointments WHERE appt_date=CURRENT_DATE AND status='Pending'")
-    col1.metric("Total Patients",        t['c'] if t else 0)
-    col2.metric("Today's Appointments",  a['c'] if a else 0)
-    col3.metric("Pending Today",         p['c'] if p else 0)
-    upcoming = run_query_one("""
-    SELECT COUNT(*) as c
-    FROM appointments
-    WHERE appt_date = CURRENT_DATE
+
+    t = run_query_one("""
+        SELECT COUNT(*) as c
+        FROM patients
     """)
-    st.info(f"📅 {upcoming['c']} appointments scheduled today")
-    st.info("📋 Use Today's Queue to manage appointments and cancellations.")
+
+    a = run_query_one("""
+        SELECT COUNT(*) as c
+        FROM appointments
+        WHERE appt_date = CURRENT_DATE
+    """)
+
+    p = run_query_one("""
+        SELECT COUNT(*) as c
+        FROM appointments
+        WHERE appt_date = CURRENT_DATE
+          AND status = 'Pending'
+    """)
+
+    col1.metric(
+        "Total Patients",
+        t['c'] if t else 0
+    )
+
+    col2.metric(
+        "Today's Appointments",
+        a['c'] if a else 0
+    )
+
+    col3.metric(
+        "Pending Today",
+        p['c'] if p else 0
+    )
+
+    st.markdown("---")
+    st.markdown("### 📋 Active Appointments Today")
+
+    queue = run_query("""
+        SELECT
+            a.appt_id,
+            p.full_name AS patient,
+            d.full_name AS doctor,
+            a.appt_time,
+            a.appt_type,
+            a.status
+        FROM appointments a
+        JOIN patients p
+            ON a.patient_id = p.patient_id
+        JOIN doctors d
+            ON a.doctor_id = d.doctor_id
+        WHERE a.appt_date = CURRENT_DATE
+        AND a.status != 'Cancelled'
+        ORDER BY a.appt_time
+    """)
+
+    if queue:
+        import pandas as pd
+
+        st.dataframe(
+            pd.DataFrame(queue),
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("No active appointments scheduled for today.")
 
 def show_register(user):
     require_role(["Receptionist", "Admin"])
@@ -329,7 +386,8 @@ def show_profile(user):
 
     search = st.text_input(
         "Search Patient",
-        placeholder="Enter patient name or phone number"
+        placeholder="Enter patient name or phone number",
+        key="profile_search"
     )
 
     if search and len(search.strip()) >= 2:
@@ -368,7 +426,8 @@ def show_profile(user):
 
             selected = st.selectbox(
                 "Select Patient",
-                [""] + list(options.keys())
+                [""] + list(options.keys()),
+                key="profile_select"
             )
 
             if selected:
@@ -420,7 +479,8 @@ def show_update_patient(user):
 
     search = st.text_input(
         "Search Patient",
-        placeholder="Enter patient name or phone number"
+        placeholder="Enter patient name or phone number",
+        key="update_search"
     )
 
     if search and len(search.strip()) >= 2:
@@ -452,7 +512,8 @@ def show_update_patient(user):
 
             selected = st.selectbox(
                 "Select Patient",
-                [""] + list(options.keys())
+                [""] + list(options.keys()),
+                key="update_select"
             )
 
             if selected:
@@ -544,3 +605,297 @@ def show_update_patient(user):
 
         else:
             st.warning("No patients found.")
+
+def show_appointments(user):
+    require_role(["Receptionist", "Admin"])
+    if "appt_msg" in st.session_state:
+        st.success(st.session_state["appt_msg"])
+        del st.session_state["appt_msg"]
+
+    st.markdown(
+        '<p class="page-title">🗓️ Appointment Management</p>',
+        unsafe_allow_html=True
+    )
+
+    tab1, tab2, tab3 = st.tabs([
+        "👀 View Appointments",
+        "❌ Cancel Appointment",
+        "🔄 Reschedule Appointment"
+    ])
+
+    # ==================================================
+    # VIEW APPOINTMENTS
+    # ==================================================
+
+    with tab1:
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            appt_date = st.date_input(
+                "Appointment Date",
+                value=date.today(),
+                key="view_date"
+            )
+
+        with col2:
+            status = st.selectbox(
+                "Status",
+                ["All", "Pending", "Confirmed", "Completed", "Cancelled"],
+                key="view_status"
+            )
+
+        query = """
+            SELECT
+                a.appt_id,
+                p.full_name AS patient,
+                d.full_name AS doctor,
+                a.appt_date,
+                a.appt_time,
+                a.appt_type,
+                a.status
+            FROM appointments a
+            JOIN patients p ON a.patient_id = p.patient_id
+            JOIN doctors d ON a.doctor_id = d.doctor_id
+            WHERE a.appt_date = %s
+        """
+
+        params = [appt_date]
+
+        if status == "All":
+            query += " AND a.status != 'Cancelled'"
+        else:
+            query += " AND a.status = %s"
+            params.append(status)
+
+        query += " ORDER BY a.appt_time"
+
+        rows = run_query(query, params)
+
+        if rows:
+            import pandas as pd
+            st.dataframe(
+                pd.DataFrame(rows),
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No appointments found.")
+
+    # ==================================================
+    # CANCEL APPOINTMENT
+    # ==================================================
+
+    with tab2:
+
+        appointments = run_query("""
+            SELECT appt_id
+            FROM appointments
+            WHERE status NOT IN ('Completed', 'Cancelled')
+            ORDER BY appt_date, appt_time
+        """)
+
+        options = [str(a["appt_id"]) for a in appointments]
+
+        sel = st.selectbox(
+            "Appointment ID",
+            [""] + options,
+            key="cancel_appt"
+        )
+
+        if sel:
+
+            appt = run_query("""
+                SELECT
+                    a.appt_id,
+                    p.full_name AS patient,
+                    d.full_name AS doctor,
+                    a.appt_date,
+                    a.appt_time,
+                    a.appt_type,
+                    a.status
+                FROM appointments a
+                JOIN patients p ON a.patient_id = p.patient_id
+                JOIN doctors d ON a.doctor_id = d.doctor_id
+                WHERE a.appt_id = %s
+            """, [int(sel)])
+
+            if appt:
+
+                a = appt[0]
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.write("**Patient:**", a["patient"])
+                    st.write("**Doctor:**", a["doctor"])
+                    st.write("**Date:**", a["appt_date"])
+
+                with col2:
+                    st.write("**Time:**", a["appt_time"])
+                    st.write("**Type:**", a["appt_type"])
+                    st.write("**Status:**", a["status"])
+
+        reason = st.text_input(
+            "Reason for cancellation",
+            key="cancel_reason"
+        )
+
+        if st.button("❌ Cancel Appointment"):
+
+            if not sel:
+                st.error("Select an appointment.")
+
+            elif not reason.strip():
+                st.error("Cancellation reason required.")
+
+            else:
+
+                run_query("""
+                    UPDATE appointments
+                    SET
+                        status='Cancelled',
+                        notes=%s
+                    WHERE appt_id=%s
+                """, [
+                    reason.strip(),
+                    int(sel)
+                ], fetch=False)
+
+                st.session_state["appt_msg"] = f"✅ Appointment #{sel} cancelled successfully."
+                st.rerun()
+
+    # ==================================================
+    # RESCHEDULE APPOINTMENT
+    # ==================================================
+
+    with tab3:
+
+        appointments = run_query("""
+            SELECT appt_id
+            FROM appointments
+            WHERE status NOT IN ('Completed', 'Cancelled')
+            ORDER BY appt_date, appt_time
+        """)
+
+        options = [str(a["appt_id"]) for a in appointments]
+
+        sel = st.selectbox(
+            "Appointment to Reschedule",
+            [""] + options,
+            key="reschedule_appt"
+        )
+
+        if sel:
+
+            appt = run_query("""
+                SELECT
+                    a.appt_id,
+                    p.full_name AS patient,
+                    d.full_name AS doctor,
+                    a.appt_date,
+                    a.appt_time,
+                    a.appt_type,
+                    a.status
+                FROM appointments a
+                JOIN patients p ON a.patient_id = p.patient_id
+                JOIN doctors d ON a.doctor_id = d.doctor_id
+                WHERE a.appt_id = %s
+            """, [int(sel)])
+
+            if appt:
+
+                a = appt[0]
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.write("**Patient:**", a["patient"])
+                    st.write("**Doctor:**", a["doctor"])
+                    st.write("**Current Date:**", a["appt_date"])
+
+                with col2:
+                    st.write("**Current Time:**", a["appt_time"])
+                    st.write("**Type:**", a["appt_type"])
+                    st.write("**Status:**", a["status"])
+
+        new_date = st.date_input(
+            "New Appointment Date",
+            min_value=date.today(),
+            key="new_date"
+        )
+
+        new_time = st.time_input(
+            "New Appointment Time",
+            value=time(9, 0),
+            key="new_time"
+        )
+
+        if st.button("🔄 Reschedule Appointment"):
+
+            if not sel:
+                st.error("Select an appointment.")
+            
+            elif new_time < time(8, 0) or new_time > time(20, 0):
+                st.error("Appointment time must be between 08:00 AM and 08:00 PM.")
+
+            else:
+
+                run_query("""
+                    UPDATE appointments
+                    SET
+                        appt_date=%s,
+                        appt_time=%s
+                    WHERE appt_id=%s
+                """, [
+                    new_date,
+                    new_time,
+                    int(sel)
+                ], fetch=False)
+
+                st.session_state["appt_msg"] = f"✅ Appointment #{sel} rescheduled successfully."
+                st.rerun()
+                
+def show_patients(user):
+
+    require_role(["Receptionist", "Admin"])
+
+    st.markdown(
+        '<p class="page-title">👥 Patient Management</p>',
+        unsafe_allow_html=True
+    )
+
+    tab1, tab2, tab3 = st.tabs([
+        "📝 Register Patient",
+        "👤 Patient Profile",
+        "✏️ Update Patient"
+    ])
+
+    with tab1:
+        show_register(user)
+
+    with tab2:
+        show_profile(user)
+
+    with tab3:
+        show_update_patient(user)
+        
+def show_appointment_management(user):
+
+    require_role(["Receptionist", "Admin"])
+
+    st.markdown(
+        '<p class="page-title">📅 Appointment Management</p>',
+        unsafe_allow_html=True
+    )
+
+    tab1, tab2 = st.tabs([
+        "📅 Book Appointment",
+        "🗓️ Manage Appointments"
+    ])
+
+    with tab1:
+        show_book(user)
+
+    with tab2:
+        show_appointments(user)
