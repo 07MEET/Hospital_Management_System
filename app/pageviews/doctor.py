@@ -162,12 +162,11 @@ def show_diagnose(user):
             SELECT d.diag_id, p.full_name, d.icd_code FROM diagnoses d
             JOIN appointments a ON d.appt_id=a.appt_id
             JOIN patients p ON a.patient_id=p.patient_id
-            WHERE a.doctor_id=%s ORDER BY d.diag_id DESC LIMIT 20
-        """, [doc_id])
+            WHERE a.doctor_id=%s AND d.diag_id NOT IN (SELECT diag_id FROM prescriptions) ORDER BY d.diag_id DESC LIMIT 20""", [doc_id])
         meds  = run_query("SELECT medicine_id, brand_name, generic_name, unit_price, stock_quantity FROM medicines WHERE stock_quantity>0 ORDER BY brand_name")
 
         if not diags:
-            st.info("No diagnoses found.")
+            st.info("No diagnoses are pending prescription.")
             return
 
         diag     = st.selectbox("Diagnosis",  [""]+[f"{d['diag_id']} — {d['full_name']} — {d['icd_code']}" for d in diags])
@@ -209,34 +208,76 @@ def show_lab(user):
     col1, col2 = st.columns(2)
     with col1:
         appts = run_query("""
-            SELECT a.appt_id, p.full_name, a.appt_date FROM appointments a
+            SELECT a.appt_id, p.full_name, a.appt_date
+            FROM appointments a
             JOIN patients p ON a.patient_id=p.patient_id
-            WHERE a.doctor_id=%s AND a.status IN ('Confirmed','Completed')
-            ORDER BY a.appt_date DESC LIMIT 20
+            WHERE a.doctor_id=%s
+            AND a.status IN ('Confirmed','Completed')
+            AND NOT EXISTS (
+                SELECT 1
+                FROM lab_orders lo
+                WHERE lo.appt_id = a.appt_id
+            )
+            ORDER BY a.appt_date DESC
+            LIMIT 20
         """, [doc_id])
         tests = run_query("SELECT test_id, test_name, category, price, normal_range, turnaround_hours FROM lab_tests ORDER BY test_name")
 
         appt = st.selectbox("Appointment", [""]+[f"{a['appt_id']} — {a['full_name']} ({a['appt_date']})" for a in appts])
-        test = st.selectbox("Test",        [""]+[f"{t['test_id']} — {t['test_name']} ({t['category']}) ₹{t['price']}" for t in tests])
-        if test:
-            t_id   = int(test.split("—")[0].strip())
-            t_info = next((t for t in tests if t['test_id']==t_id), None)
-            if t_info:
-                st.info(f"Normal range: {t_info['normal_range']} | Results in {t_info['turnaround_hours']} hrs")
+        selected_tests = st.multiselect(
+            "Select Tests",
+            [f"{t['test_id']} — {t['test_name']} ({t['category']}) ₹{t['price']}" for t in tests]
+        )
+        if selected_tests:
 
-        if st.button("🔬 Order Test", type="primary"):
-            if not appt or not test:
-                st.error("Select both appointment and test.")
+            st.markdown("### Selected Test Information")
+
+            for item in selected_tests:
+
+                t_id = int(item.split("—")[0].strip())
+
+                t_info = next(
+                    (t for t in tests if t['test_id'] == t_id),
+                    None
+                )
+
+                if t_info:
+                    st.info(
+                        f"{t_info['test_name']} | "
+                        f"Normal Range: {t_info['normal_range']} | "
+                        f"Results in {t_info['turnaround_hours']} hrs"
+                    )
+
+        if st.button("🔬 Order Selected Tests", type="primary"):
+
+            if not appt:
+                st.error("Select an appointment.")
+
+            elif not selected_tests:
+                st.error("Select at least one test.")
+
             else:
                 try:
                     appt_id = int(appt.split("—")[0].strip())
-                    test_id = int(test.split("—")[0].strip())
-                    dup = run_query_one("SELECT order_id FROM lab_orders WHERE appt_id=%s AND test_id=%s AND status!='Done'", [appt_id, test_id])
-                    if dup:
-                        st.warning("Already ordered for this appointment.")
-                    else:
-                        run_query("INSERT INTO lab_orders(appt_id,test_id) VALUES(%s,%s)", [appt_id, test_id], fetch=False)
-                        st.success("✅ Lab test ordered!")
+
+                    for item in selected_tests:
+                        test_id = int(item.split("—")[0].strip())
+
+                        run_query(
+                            """
+                            INSERT INTO lab_orders(appt_id,test_id)
+                            VALUES(%s,%s)
+                            """,
+                            [appt_id, test_id],
+                            fetch=False
+                        )
+
+                    st.success(
+                        f"✅ {len(selected_tests)} test(s) ordered successfully!"
+                    )
+
+                    st.rerun()
+
                 except Exception as e:
                     st.error(str(e))
 

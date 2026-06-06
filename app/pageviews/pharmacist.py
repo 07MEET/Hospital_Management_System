@@ -40,6 +40,7 @@ def show_dispense(user):
             JOIN appointments a ON d.appt_id        = a.appt_id
             JOIN patients pat   ON a.patient_id     = pat.patient_id
             JOIN medicines m    ON pr.medicine_id   = m.medicine_id
+            WHERE pr.is_dispensed = FALSE
             ORDER BY pr.prescribed_at DESC LIMIT 30
         """)
 
@@ -82,6 +83,11 @@ def show_dispense(user):
                                     UPDATE medicines SET stock_quantity=stock_quantity-%s
                                     WHERE medicine_id=%s AND stock_quantity>=%s
                                 """, [qty, rx['medicine_id'], qty], fetch=False)
+                                run_query("""
+                                    UPDATE prescriptions
+                                    SET is_dispensed = TRUE
+                                    WHERE rx_id = %s
+                                """, [rx_id], fetch=False)
                                 updated = run_query_one("SELECT stock_quantity, reorder_level FROM medicines WHERE medicine_id=%s", [rx['medicine_id']])
                                 st.success(f"✅ Dispensed {qty} units of {rx['brand_name']}!")
                                 if updated and updated['stock_quantity'] <= updated['reorder_level']:
