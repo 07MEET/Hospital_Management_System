@@ -33,16 +33,30 @@ GROUP BY b.bill_id, p.full_name, b.total_amount,
          b.insurance_covered, b.net_payable, b.status, b.bill_date;
 
 -- Fraud dashboard view
-CREATE VIEW vw_fraud_dashboard AS
-SELECT fa.alert_id, fa.rule_triggered, fa.severity,
-       fa.detected_at, fa.status, fa.details,
-       p.full_name AS patient, b.total_amount
+CREATE OR REPLACE VIEW vw_fraud_dashboard AS
+SELECT
+    fa.alert_id,
+    fa.bill_id,
+    fa.patient_id,
+    p.full_name AS patient,
+    fa.rule_triggered,
+    fa.severity,
+    fa.details,
+    fa.detected_at,
+    fa.status,
+    b.total_amount
 FROM fraud_alerts fa
-JOIN bills b ON fa.bill_id = b.bill_id
-JOIN patients p ON fa.patient_id = p.patient_id
+LEFT JOIN bills b
+    ON fa.bill_id = b.bill_id
+LEFT JOIN patients p
+    ON fa.patient_id = p.patient_id
 ORDER BY
-  CASE fa.severity WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,
-  fa.detected_at DESC;
+    CASE
+        WHEN fa.severity = 'High' THEN 1
+        WHEN fa.severity = 'Medium' THEN 2
+        ELSE 3
+    END,
+    fa.detected_at DESC;
 
 -- Low stock view
 CREATE VIEW vw_low_stock AS

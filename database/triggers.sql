@@ -56,61 +56,7 @@ FOR EACH ROW
 WHEN (NEW.result_value IS NOT NULL AND OLD.result_value IS NULL)
 EXECUTE FUNCTION flag_abnormal();
 
--- 4. FRAUD DETECTION TRIGGER
-CREATE OR REPLACE FUNCTION run_fraud_detection()
-RETURNS TRIGGER AS $$
-DECLARE
-  v_dup_count  INTEGER;
-  v_avg_amount DECIMAL;
-BEGIN
-  -- Rule 1: Duplicate billing
-  SELECT COUNT(*) INTO v_dup_count
-  FROM bills
-  WHERE patient_id = NEW.patient_id
-  AND DATE(bill_date) = DATE(NEW.bill_date)
-  AND bill_id != NEW.bill_id;
 
-  IF v_dup_count > 0 THEN
-    INSERT INTO fraud_alerts(bill_id, patient_id, rule_triggered, severity, details)
-    VALUES (NEW.bill_id, NEW.patient_id, 'Duplicate Billing', 'High',
-            'Same patient billed multiple times on same day');
-  END IF;
-
-  -- Rule 2: Abnormal charge spike
-  SELECT AVG(total_amount) INTO v_avg_amount FROM bills
-  WHERE patient_id != NEW.patient_id;
-
-  IF NEW.total_amount > (v_avg_amount * 3) THEN
-    INSERT INTO fraud_alerts(bill_id, patient_id, rule_triggered, severity, details)
-    VALUES (NEW.bill_id, NEW.patient_id, 'Abnormal Charge Spike', 'High',
-            FORMAT('Bill amount %.2f is 3x above average %.2f',
-                   NEW.total_amount, v_avg_amount));
-  END IF;
-
-  -- Rule 3: Insurance overcharge
-  IF NEW.insurance_covered > NEW.total_amount THEN
-    INSERT INTO fraud_alerts(bill_id, patient_id, rule_triggered, severity, details)
-    VALUES (NEW.bill_id, NEW.patient_id, 'Insurance Overcharge', 'High',
-            'Insurance claimed exceeds actual bill amount');
-  END IF;
-
-  -- Rule 4: After hours billing
-  IF EXTRACT(HOUR FROM NEW.bill_date) < 8
-  OR EXTRACT(HOUR FROM NEW.bill_date) > 20 THEN
-    INSERT INTO fraud_alerts(bill_id, patient_id, rule_triggered, severity, details)
-    VALUES (NEW.bill_id, NEW.patient_id, 'After-Hours Billing', 'Medium',
-            FORMAT('Bill generated at %s outside working hours', NEW.bill_date));
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_fraud_detection
-AFTER UPDATE ON bills
-FOR EACH ROW
-WHEN (NEW.total_amount > 0)
-EXECUTE FUNCTION run_fraud_detection();
 
 -- 5. AUDIT LOG TRIGGER
 CREATE OR REPLACE FUNCTION log_audit()

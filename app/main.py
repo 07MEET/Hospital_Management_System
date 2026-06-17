@@ -23,7 +23,7 @@ st.markdown(load_css(), unsafe_allow_html=True)
 
 # ── NAV CONFIG ────────────────────────────────────────────────
 NAV = {
-    "Admin":         ["📊 Dashboard","👥 Patients","📅 Appointments","👨‍⚕️ Doctors","💊 Medicines","🚨 Fraud Alerts","📋 Audit Log","⚙️ Settings"],
+    "Admin":         ["📊 Dashboard","👨‍⚕️ Doctors","💊 Medicines","🚨 Fraud Alerts","📋 Audit Log","👤 User Management"],
     "Doctor":        ["📊 Dashboard","📅 My Appointments","🩺 Diagnose & Prescribe","🔬 Lab Orders"],
     "Receptionist": ["📊 Dashboard", "👥 Patients", "📅 Appointments"],
     "Lab_Tech":      ["📊 Dashboard","⏳ Pending Orders","✅ Enter Results"],
@@ -146,13 +146,11 @@ def route(user: dict, page: str):
 
     if role == "Admin":
         if "Dashboard"     in page: from pageviews.admin import show_dashboard;  show_dashboard(user)
-        elif "Patients"    in page: from pageviews.receptionist import show_register; show_register(user)
-        elif "Appointment" in page: from pageviews.receptionist import show_book; show_book(user)
         elif "Doctors"     in page: from pageviews.admin import show_doctors;    show_doctors(user)
         elif "Medicines"   in page: from pageviews.admin import show_medicines;  show_medicines(user)
         elif "Fraud"       in page: from pageviews.billing import show_fraud;    show_fraud(user)
         elif "Audit"       in page: from pageviews.admin import show_audit;      show_audit(user)
-        elif "Settings"    in page: from pageviews.admin import show_settings;   show_settings(user)
+        elif "User Management"    in page: from pageviews.admin import show_settings;   show_settings(user)
 
     elif role == "Doctor":
         if "Dashboard"     in page: from pageviews.doctor import show_dashboard;    show_dashboard(user)

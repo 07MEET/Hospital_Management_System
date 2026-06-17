@@ -96,6 +96,15 @@ DECLARE
   v_ins_covered    DECIMAL(12,2) := 0;
   v_net            DECIMAL(12,2);
 BEGIN
+
+  IF EXISTS (
+        SELECT 1
+        FROM bills
+        WHERE appt_id = p_appt_id
+    ) THEN
+        RAISE EXCEPTION 'A bill has already been generated for this appointment.';
+    END IF;
+    
   -- Get patient
   SELECT patient_id INTO v_patient_id
   FROM appointments WHERE appt_id = p_appt_id;

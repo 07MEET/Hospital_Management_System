@@ -4,6 +4,7 @@ Fix: HTML metric cards rendering as raw text (use st.metric instead)
 Fix: Added show_medicines() function for admin to add medicines
 """
 import streamlit as st
+import json
 import pandas as pd
 from datetime import date
 from db import run_query, run_query_one
@@ -19,26 +20,55 @@ def show_dashboard(user):
     st.markdown('<p class="page-title">📊 Admin Dashboard</p>', unsafe_allow_html=True)
 
     # ── Metrics using native st.metric (no HTML rendering issue) ──
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    patients  = run_query_one("SELECT COUNT(*) as c FROM patients")
-    doctors   = run_query_one("SELECT COUNT(*) as c FROM doctors WHERE status='Active'")
-    appts     = run_query_one("SELECT COUNT(*) as c FROM appointments WHERE appt_date=CURRENT_DATE")
-    fraud     = run_query_one("SELECT COUNT(*) as c FROM fraud_alerts WHERE status='Open'")
-    revenue   = run_query_one("SELECT COALESCE(SUM(amount_paid),0) as s FROM payments WHERE DATE(payment_date)=CURRENT_DATE")
-    unpaid    = run_query_one("SELECT COUNT(*) as c FROM bills WHERE status='Unpaid'")
+    
+    patients = run_query_one("SELECT COUNT(*) AS c FROM patients")
 
-    c1.metric("Patients",          patients['c']  if patients  else 0)
-    c2.metric("Active Doctors",    doctors['c']   if doctors   else 0)
-    c3.metric("Today's Appts",     appts['c']     if appts     else 0)
-    c4.metric("Fraud Alerts",      fraud['c']     if fraud     else 0)
-    c5.metric("Today Revenue",     f"₹{revenue['s']:,.0f}" if revenue else "₹0")
-    c6.metric("Unpaid Bills",      unpaid['c']    if unpaid    else 0)
+    doctors = run_query_one("""
+        SELECT COUNT(*) AS c
+        FROM doctors
+        WHERE status = 'Active'
+    """)
+
+    appointments = run_query_one("""
+        SELECT COUNT(*) AS c
+        FROM appointments
+        WHERE appt_date = CURRENT_DATE
+    """)
+
+    revenue = run_query_one("""
+        SELECT COALESCE(SUM(amount_paid),0) AS s
+        FROM payments
+        WHERE DATE(payment_date)=CURRENT_DATE
+    """)
+
+    low_stock = run_query_one("""
+        SELECT COUNT(*) AS c
+        FROM medicines
+        WHERE stock_quantity <= reorder_level
+    """)
+
+    fraud = run_query_one("""
+        SELECT COUNT(*) AS c
+        FROM fraud_alerts
+        WHERE status='Open'
+    """)
+    
+    c1, c2, c3 = st.columns(3)
+    c4, c5, c6 = st.columns(3)
+
+    c1.metric("👥 Patients", patients["c"] if patients else 0)
+    c2.metric("👨‍⚕️ Doctors", doctors["c"] if doctors else 0)
+    c3.metric("📅 Today's Appointments", appointments["c"] if appointments else 0)
+
+    c4.metric("💰 Today's Revenue", f"₹{float(revenue['s'] or 0):,.2f}")
+    c5.metric("💊 Low Stock", low_stock["c"] if low_stock else 0)
+    c6.metric("🚨 Fraud Alerts", fraud["c"] if fraud else 0)
 
     st.markdown("---")
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown("**📅 Today's Appointments**")
+        st.markdown("**📋 Today's Schedule**")
         queue = run_query("""
             SELECT p.full_name AS patient, d.full_name AS doctor,
                    a.appt_time, a.appt_type, a.status
@@ -48,29 +78,81 @@ def show_dashboard(user):
             WHERE a.appt_date=CURRENT_DATE ORDER BY a.appt_time LIMIT 8
         """)
         if queue:
-            st.dataframe(pd.DataFrame(queue), use_container_width=True)
+            st.dataframe(
+                pd.DataFrame(queue),
+                use_container_width=True,
+                hide_index=True
+            )
         else:
             st.info("No appointments today.")
 
     with col2:
-        st.markdown("**🚨 Recent Fraud Alerts**")
-        alerts = run_query("""
-            SELECT fa.rule_triggered, fa.severity, p.full_name AS patient, fa.status
-            FROM fraud_alerts fa
-            JOIN patients p ON fa.patient_id=p.patient_id
-            WHERE fa.status='Open'
-            ORDER BY fa.detected_at DESC LIMIT 5
+        st.markdown("**💳 Recent Payments**")
+
+        payments = run_query("""
+            SELECT
+                p.full_name AS patient,
+                pay.amount_paid AS amount,
+                pay.payment_mode,
+                pay.payment_date
+            FROM payments pay
+            JOIN bills b ON pay.bill_id = b.bill_id
+            JOIN patients p ON b.patient_id = p.patient_id
+            ORDER BY pay.payment_date DESC
+            LIMIT 5
         """)
-        if alerts:
-            st.dataframe(pd.DataFrame(alerts), use_container_width=True)
+
+        if payments:
+            st.dataframe(
+                pd.DataFrame(payments),
+                use_container_width=True,
+                hide_index=True
+            )
         else:
-            st.success("✅ No open fraud alerts.")
+            st.info("No payments recorded yet.")
+            
+    st.markdown("---")
+    st.subheader("⚠️ System Alerts")
+
+    pending_lab = run_query_one("""
+        SELECT COUNT(*) AS c
+        FROM lab_orders
+        WHERE status = 'Pending'
+    """)
+
+    unpaid = run_query_one("""
+        SELECT COUNT(*) AS c
+        FROM bills
+        WHERE status != 'Paid'
+    """)
+
+    alerts = []
+
+    if low_stock and low_stock["c"] > 0:
+        alerts.append(f"💊 Low Stock Medicines: {low_stock['c']}")
+
+    if pending_lab and pending_lab["c"] > 0:
+        alerts.append(f"🔬 Pending Lab Orders: {pending_lab['c']}")
+
+    if unpaid and unpaid["c"] > 0:
+        alerts.append(f"🧾 Unpaid Bills: {unpaid['c']}")
+
+    if fraud and fraud["c"] > 0:
+        alerts.append(f"🚨 Open Fraud Alerts: {fraud['c']}")
+
+    if alerts:
+        for alert in alerts:
+            st.warning(alert)
+    else:
+        st.success("✅ No critical alerts. Hospital operations look healthy.")
+            
+    
 
 
 def show_doctors(user):
     require_role(["Admin"])
     st.markdown('<p class="page-title">👨‍⚕️ Doctor Management</p>', unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["All Doctors", "Add New Doctor"])
+    tab1, tab2, tab3= st.tabs(["All Doctors", "Add New Doctor", "Manage Doctors"])
 
     with tab1:
         doctors = run_query("""
@@ -125,13 +207,79 @@ def show_doctors(user):
                     st.rerun()
                 except Exception as e:
                     st.error(f"❌ {e}")
+    
+    with tab3:
+        st.markdown("### 🛠️ Manage Existing Doctors")
+
+        doctors = run_query("""
+            SELECT doctor_id,
+                full_name,
+                specialization,
+                opd_fee,
+                status
+            FROM doctors
+            ORDER BY full_name
+        """)
+
+        if not doctors:
+            st.info("No doctors found.")
+        else:
+            selected = st.selectbox(
+                "Select Doctor",
+                [""] + [
+                    f"{d['doctor_id']} — {d['full_name']} ({d['status']})"
+                    for d in doctors
+                ]
+            )
+
+            if selected:
+                doctor_id = int(selected.split("—")[0].strip())
+
+                doctor = next(
+                    d for d in doctors
+                    if d["doctor_id"] == doctor_id
+                )
+
+                st.write(f"**Specialization:** {doctor['specialization']}")
+                st.write(f"**Current OPD Fee:** ₹{doctor['opd_fee']}")
+                st.write(f"**Current Status:** {doctor['status']}")
+
+                new_fee = st.number_input(
+                    "New OPD Fee",
+                    min_value=0.0,
+                    value=float(doctor["opd_fee"]),
+                    step=100.0
+                )
+
+                new_status = st.selectbox(
+                    "Status",
+                    ["Active", "Inactive", "On Leave"],
+                    index=["Active", "Inactive", "On Leave"].index(
+                        doctor["status"]
+                    ) if doctor["status"] in ["Active", "Inactive", "On Leave"] else 0
+                )
+
+                if st.button("💾 Update Doctor"):
+                    run_query("""
+                        UPDATE doctors
+                        SET opd_fee = %s,
+                            status = %s
+                        WHERE doctor_id = %s
+                    """, [
+                        new_fee,
+                        new_status,
+                        doctor_id
+                    ], fetch=False)
+
+                    st.success("✅ Doctor updated successfully.")
+                    st.rerun()
 
 
 # ── Feature 4: Admin Medicine Management ─────────────────────
 def show_medicines(user):
     require_role(["Admin"])
     st.markdown('<p class="page-title">💊 Medicine Management</p>', unsafe_allow_html=True)
-    tab1, tab2, tab3 = st.tabs(["All Medicines", "Add New Medicine", "Restock"])
+    tab1, tab2 = st.tabs(["All Medicines", "Add New Medicine"])
 
     with tab1:
         col1, col2 = st.columns(2)
@@ -215,53 +363,148 @@ def show_medicines(user):
                     except Exception as e:
                         st.error(f"❌ {e}")
 
-    with tab3:
-        st.markdown("**Restock Existing Medicine**")
-        all_meds = run_query("SELECT medicine_id, brand_name, stock_quantity, reorder_level FROM medicines ORDER BY brand_name")
-        med_sel  = st.selectbox("Select Medicine",
-            [""]+[f"{m['medicine_id']} — {m['brand_name']} (Stock: {m['stock_quantity']}, Reorder: {m['reorder_level']})" for m in all_meds])
-        qty_add  = st.number_input("Quantity to Add *", min_value=1, max_value=100000, value=100)
-
-        if st.button("📦 Update Stock", type="primary"):
-            if not med_sel:
-                st.error("Select a medicine.")
-            else:
-                try:
-                    med_id = int(med_sel.split("—")[0].strip())
-                    run_query("UPDATE medicines SET stock_quantity=stock_quantity+%s WHERE medicine_id=%s",
-                              [int(qty_add), med_id], fetch=False)
-                    updated = run_query_one("SELECT brand_name, stock_quantity FROM medicines WHERE medicine_id=%s", [med_id])
-                    st.success(f"✅ {updated['brand_name']} stock updated to {updated['stock_quantity']} units!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ {e}")
-
 
 def show_audit(user):
     require_role(["Admin"])
-    st.markdown('<p class="page-title">📋 Audit Log</p>', unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    with col1: table_f = st.selectbox("Table", ["All","patients","appointments","bills","medicines"])
-    with col2: op_f    = st.selectbox("Operation", ["All","INSERT","UPDATE","DELETE"])
-    with col3: date_f  = st.date_input("Date", value=date.today())
 
-    q  = "SELECT al.log_id, al.table_name, al.operation, al.record_id, u.username AS changed_by, al.changed_at FROM audit_log al LEFT JOIN users u ON al.changed_by=u.user_id WHERE DATE(al.changed_at)=%s"
-    p  = [date_f]
-    if table_f != "All": q += " AND al.table_name=%s"; p.append(table_f)
-    if op_f != "All":    q += " AND al.operation=%s";  p.append(op_f)
-    q  += " ORDER BY al.changed_at DESC LIMIT 100"
+    st.markdown(
+        '<p class="page-title">📋 Audit Log</p>',
+        unsafe_allow_html=True
+    )
 
-    logs = run_query(q, p)
-    if logs:
-        st.dataframe(pd.DataFrame(logs), use_container_width=True)
-        st.caption(f"Showing {len(logs)} records (max 100)")
-    else:
+    # ---------------- Filters ----------------
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        table_filter = st.selectbox(
+            "Table",
+            ["All", "patients", "appointments", "bills", "medicines"]
+        )
+
+    with c2:
+        operation_filter = st.selectbox(
+            "Operation",
+            ["All", "INSERT", "UPDATE", "DELETE"]
+        )
+
+    with c3:
+        selected_date = st.date_input(
+            "Date",
+            value=date.today()
+        )
+
+    query = """
+        SELECT
+            al.log_id,
+            al.table_name,
+            al.operation,
+            al.record_id,
+            COALESCE(u.username, 'System') AS changed_by,
+            al.changed_at,
+            al.old_values,
+            al.new_values
+        FROM audit_log al
+        LEFT JOIN users u
+            ON al.changed_by = u.user_id
+        WHERE DATE(al.changed_at) = %s
+    """
+
+    params = [selected_date]
+
+    if table_filter != "All":
+        query += " AND al.table_name = %s"
+        params.append(table_filter)
+
+    if operation_filter != "All":
+        query += " AND al.operation = %s"
+        params.append(operation_filter)
+
+    query += """
+        ORDER BY al.changed_at DESC
+        LIMIT 100
+    """
+
+    logs = run_query(query, params)
+
+    if not logs:
         st.info("No audit records found.")
+        return
+
+    # ---------------- Summary ----------------
+    st.success(f"Showing {len(logs)} audit record(s)")
+
+    df = pd.DataFrame(logs)[
+        [
+            "log_id",
+            "table_name",
+            "operation",
+            "record_id",
+            "changed_by",
+            "changed_at"
+        ]
+    ]
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    st.markdown("---")
+    st.subheader("🔍 View Record Details")
+
+    options = {
+        f"Log #{r['log_id']} | {r['operation']} | {r['table_name']} | Record {r['record_id']}": r
+        for r in logs
+    }
+
+    selected_key = st.selectbox(
+        "Select Audit Entry",
+        list(options.keys())
+    )
+
+    selected = options[selected_key]
+    
+    def get_changed_fields(old_data, new_data):
+        old_data = old_data or {}
+        new_data = new_data or {}
+
+        changes = {}
+
+        all_keys = (
+            set(old_data.keys())
+            | set(new_data.keys())
+        )
+
+        for key in all_keys:
+
+            if old_data.get(key) != new_data.get(key):
+
+                changes[key] = {
+                    "old": old_data.get(key),
+                    "new": new_data.get(key)
+                }
+
+        return changes
+
+    changes = get_changed_fields(
+        selected["old_values"],
+        selected["new_values"]
+    )
+
+    st.markdown("### 🔄 Changed Fields")
+
+    if changes:
+        st.json(changes)
+    else:
+        st.success(
+            "No field differences found."
+        )
 
 
 def show_settings(user):
     require_role(["Admin"])
-    st.markdown('<p class="page-title">⚙️ Settings</p>', unsafe_allow_html=True)
+    st.markdown('<p class="page-title">👤 User Management</p>', unsafe_allow_html=True)
     tab1, tab2 = st.tabs(["User Management", "Create New User"])
 
     with tab1:

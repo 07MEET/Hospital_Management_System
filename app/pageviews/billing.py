@@ -272,53 +272,146 @@ def show_payment(user):
 
 def show_fraud(user):
     require_role(["Billing_Staff", "Admin"])
-    st.markdown('<p class="page-title">🚨 Fraud Alerts</p>', unsafe_allow_html=True)
-    alerts = run_query("SELECT * FROM vw_fraud_dashboard")
 
-    if not alerts:
-        st.success("✅ No open fraud alerts. All billing looks clean!")
-        return
+    st.markdown(
+        '<p class="page-title">🚨 Billing Fraud & Integrity Monitor</p>',
+        unsafe_allow_html=True
+    )
 
-    high   = [a for a in alerts if a['severity']=='High']
-    medium = [a for a in alerts if a['severity']=='Medium']
-    low    = [a for a in alerts if a['severity']=='Low']
-    c1, c2, c3 = st.columns(3)
-    c1.metric("🔴 High",   len(high))
-    c2.metric("🟡 Medium", len(medium))
-    c3.metric("🟢 Low",    len(low))
+    # --------------------------------------------------
+    # Run Fraud Scan
+    # --------------------------------------------------
+    col1, col2 = st.columns([1, 5])
+
+    with col1:
+        if st.button("🔍 Run Fraud Scan", use_container_width=True):
+            try:
+                run_query(
+                    "CALL run_full_fraud_scan();",
+                    fetch=False
+                )
+                st.success("✅ Fraud scan completed successfully.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ {e}")
+
     st.markdown("---")
 
-    for a in alerts:
-        sev_colors = {"High":"#fee2e2","Medium":"#fef3c7","Low":"#dcfce7"}
-        color      = sev_colors.get(a['severity'], "#f8fafc")
-        icon       = {"High":"🔴","Medium":"🟡","Low":"🟢"}.get(a['severity'],"⚪")
-        st.markdown(f"""
-        <div style="background:{color};border-radius:10px;padding:1rem 1.25rem;
-                    margin-bottom:0.75rem;border:1px solid #e2e8f0;">
-            <div style="font-weight:700;">{icon} {a['rule_triggered']}</div>
-            <div style="font-size:0.85rem;margin-top:4px;color:#475569;">
-                Patient: {a['patient']} | Bill: ₹{a['total_amount']:,.2f} |
-                Detected: {str(a['detected_at'])[:16]}
-            </div>
-            <div style="font-size:0.82rem;margin-top:4px;color:#64748b;">{a.get('details','')}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # --------------------------------------------------
+    # Load Alerts
+    # --------------------------------------------------
+    alerts = run_query("""
+        SELECT *
+        FROM vw_fraud_dashboard
+        ORDER BY detected_at DESC
+    """)
 
-    if user['role'] == 'Admin':
+    if not alerts:
+        st.success("✅ No fraud alerts detected.")
+        return
+
+    # --------------------------------------------------
+    # Metrics
+    # --------------------------------------------------
+    high = sum(1 for a in alerts if a["severity"] == "High")
+    open_alerts = sum(1 for a in alerts if a["status"] == "Open")
+    reviewed = sum(1 for a in alerts if a["status"] == "Reviewed")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("🔴 High Alerts", high)
+    c2.metric("📂 Open", open_alerts)
+    c3.metric("✅ Reviewed", reviewed)
+
+    st.markdown("---")
+
+    # --------------------------------------------------
+    # Fraud Table
+    # --------------------------------------------------
+    import pandas as pd
+
+    df = pd.DataFrame(alerts)
+
+    df = df.rename(columns={
+        "alert_id": "Alert ID",
+        "patient": "Patient",
+        "rule_triggered": "Fraud Rule",
+        "severity": "Severity",
+        "status": "Status",
+        "detected_at": "Detected At",
+        "details": "Details",
+        "total_amount": "Bill Amount"
+    })
+
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True
+    )
+
+    # --------------------------------------------------
+    # Admin Actions
+    # --------------------------------------------------
+    if user["role"] == "Admin":
+
         st.markdown("---")
-        st.markdown("**Update Alert Status**")
-        open_ids = [str(a['alert_id']) for a in alerts if a['status']=='Open']
-        if open_ids:
-            sel_a  = st.selectbox("Alert ID", [""]+open_ids)
-            new_st = st.selectbox("Status", ["Reviewed","Closed"])
-            if st.button("Update") and sel_a:
+        st.subheader("🛠️ Update Alert Status")
+
+        open_ids = [
+            str(a["alert_id"])
+            for a in alerts
+            if a["status"] == "Open"
+        ]
+
+        if not open_ids:
+            st.info("No open alerts.")
+            return
+
+        col1, col2, col3 = st.columns([1, 1, 1])
+
+        with col1:
+            selected = st.selectbox(
+                "Alert ID",
+                open_ids
+            )
+
+        with col2:
+            new_status = st.selectbox(
+                "New Status",
+                ["Reviewed", "Closed"]
+            )
+
+        with col3:
+            st.write("")
+            st.write("")
+
+            if st.button(
+                "Update",
+                use_container_width=True
+            ):
                 try:
-                    run_query("UPDATE fraud_alerts SET status=%s, reviewed_by=%s WHERE alert_id=%s",
-                              [new_st, user['user_id'], int(sel_a)], fetch=False)
-                    st.success(f"✅ Alert #{sel_a} marked as {new_st}.")
+                    run_query(
+                        """
+                        UPDATE fraud_alerts
+                        SET status=%s,
+                            reviewed_by=%s
+                        WHERE alert_id=%s
+                        """,
+                        [
+                            new_status,
+                            user["user_id"],
+                            int(selected)
+                        ],
+                        fetch=False
+                    )
+
+                    st.success(
+                        f"Alert #{selected} updated to '{new_status}'."
+                    )
                     st.rerun()
+
                 except Exception as e:
-                    st.error(f"❌ {e}")
+                    st.error(str(e))
 
 def generate_invoice_pdf(bill_id):
     """
