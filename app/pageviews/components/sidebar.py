@@ -14,7 +14,6 @@ NAV_ITEMS = {
         ("👨‍⚕️", "Doctors",         "doctors"),
         ("🔬", "Lab Overview",     "lab"),
         ("💰", "Billing Overview", "billing"),
-        ("🚨", "Fraud Alerts",     "fraud"),
         ("📋", "Audit Log",        "audit"),
         ("⚙️", "Settings",         "settings"),
     ],
@@ -45,7 +44,6 @@ NAV_ITEMS = {
         ("📊", "Dashboard",        "dashboard"),
         ("🧾", "Generate Bill",    "generate"),
         ("💳", "Record Payment",   "payment"),
-        ("🚨", "Fraud Alerts",     "fraud"),
     ],
 }
 

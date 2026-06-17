@@ -60,7 +60,6 @@ GRANT SELECT                 ON patients      TO hms_pharmacist;
 GRANT SELECT, UPDATE         ON medicines     TO hms_pharmacist;
 
 -- ── Step 6: BILLING STAFF permissions ────────────────────────
--- Can manage bills, payments; READ ONLY on fraud alerts
 GRANT SELECT, INSERT, UPDATE ON bills        TO hms_billing;
 GRANT SELECT, INSERT         ON bill_items   TO hms_billing;
 GRANT SELECT, INSERT         ON payments     TO hms_billing;
@@ -72,7 +71,6 @@ GRANT SELECT                 ON lab_tests    TO hms_billing;
 GRANT SELECT                 ON prescriptions TO hms_billing;
 GRANT SELECT                 ON medicines    TO hms_billing;
 GRANT SELECT                 ON diagnoses    TO hms_billing;
-GRANT SELECT                 ON fraud_alerts TO hms_billing;   -- READ ONLY
 GRANT USAGE, SELECT ON SEQUENCE bills_bill_id_seq        TO hms_billing;
 GRANT USAGE, SELECT ON SEQUENCE bill_items_item_id_seq   TO hms_billing;
 GRANT USAGE, SELECT ON SEQUENCE payments_payment_id_seq  TO hms_billing;
@@ -82,13 +80,6 @@ GRANT ALL PRIVILEGES ON ALL TABLES    IN SCHEMA public TO hms_admin;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hms_admin;
 
 -- ── Step 8: PROTECT sensitive tables from all non-admin roles ─
-
--- Nobody except admin can DELETE fraud alerts
-REVOKE DELETE ON fraud_alerts FROM hms_billing;
-REVOKE DELETE ON fraud_alerts FROM hms_doctor;
-REVOKE DELETE ON fraud_alerts FROM hms_receptionist;
-REVOKE DELETE ON fraud_alerts FROM hms_lab_tech;
-REVOKE DELETE ON fraud_alerts FROM hms_pharmacist;
 
 -- Nobody except admin can DELETE or UPDATE audit_log
 REVOKE DELETE, UPDATE, TRUNCATE ON audit_log FROM PUBLIC;
@@ -112,17 +103,6 @@ BEGIN
 END
 $$;
 
--- Nobody can DELETE fraud_alerts ever (rule-based)
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_rules
-    WHERE tablename='fraud_alerts' AND rulename='no_delete_fraud_alerts'
-  ) THEN
-    EXECUTE 'CREATE RULE no_delete_fraud_alerts AS ON DELETE TO fraud_alerts DO INSTEAD NOTHING';
-  END IF;
-END
-$$;
 
 -- ── Step 9: ROW LEVEL SECURITY ────────────────────────────────
 
@@ -220,7 +200,6 @@ CREATE POLICY staff_all_lab_orders
 GRANT SELECT ON vw_patient_history  TO hms_doctor, hms_admin, hms_receptionist;
 GRANT SELECT ON vw_opd_queue        TO hms_receptionist, hms_admin, hms_doctor;
 GRANT SELECT ON vw_billing_summary  TO hms_billing, hms_admin;
-GRANT SELECT ON vw_fraud_dashboard  TO hms_billing, hms_admin;
 GRANT SELECT ON vw_low_stock        TO hms_pharmacist, hms_admin;
 
 -- ── Verification query ────────────────────────────────────────

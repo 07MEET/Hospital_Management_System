@@ -188,19 +188,6 @@ CREATE TABLE payments (
   received_by      INTEGER REFERENCES users(user_id)
 );
 
--- FRAUD ALERTS
-CREATE TABLE fraud_alerts (
-  alert_id       SERIAL PRIMARY KEY,
-  bill_id        INTEGER REFERENCES bills(bill_id),
-  patient_id     INTEGER REFERENCES patients(patient_id),
-  rule_triggered VARCHAR(100),
-  severity       VARCHAR(20) CHECK (severity IN ('Low','Medium','High')),
-  detected_at    TIMESTAMP DEFAULT NOW(),
-  details        TEXT,
-  status         VARCHAR(20) DEFAULT 'Open' CHECK (status IN ('Open','Reviewed','Closed')),
-  reviewed_by    INTEGER REFERENCES users(user_id)
-);
-
 -- AUDIT LOG
 CREATE TABLE audit_log (
   log_id      BIGSERIAL PRIMARY KEY,
@@ -222,4 +209,3 @@ CREATE INDEX idx_appt_doctor     ON appointments(doctor_id);
 CREATE INDEX idx_bill_patient    ON bills(patient_id);
 CREATE INDEX idx_bill_status     ON bills(status);
 CREATE INDEX idx_medicine_stock  ON medicines(stock_quantity);
-CREATE INDEX idx_fraud_status    ON fraud_alerts(status);

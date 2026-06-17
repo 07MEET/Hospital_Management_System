@@ -106,44 +106,6 @@ def revenue_line_chart():
     st.plotly_chart(fig, use_container_width=True)
 
 
-# ── 3. Fraud Alerts Pie Chart ─────────────────────────────────
-def fraud_pie_chart():
-    """Donut chart: fraud alerts by severity."""
-    data = run_query("""
-        SELECT severity, COUNT(*) AS count
-        FROM fraud_alerts
-        WHERE status = 'Open'
-        GROUP BY severity
-    """)
-
-    if not data:
-        st.success("✅ No open fraud alerts.")
-        return
-
-    df      = pd.DataFrame(data)
-    colors  = [
-        {"High": COLORS["red"], "Medium": COLORS["amber"], "Low": COLORS["green"]}.get(s, "#94a3b8")
-        for s in df["severity"]
-    ]
-    fig = go.Figure(go.Pie(
-        labels=df["severity"], values=df["count"],
-        hole=0.55,
-        marker=dict(colors=colors),
-        textinfo="label+percent",
-        hovertemplate="%{label}: %{value} alerts<extra></extra>"
-    ))
-    fig.update_layout(
-        **{k: v for k, v in CHART_LAYOUT.items() if k not in ("xaxis","yaxis")},
-        title=dict(text="🚨 Open Fraud Alerts by Severity",
-                   font=dict(size=14, color=COLORS["primary"]), x=0),
-        showlegend=True,
-        annotations=[dict(text=f"{df['count'].sum()}<br>Alerts",
-                          x=0.5, y=0.5, font_size=14,
-                          font_color=COLORS["primary"], showarrow=False)]
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-
 # ── 4. Medicine Stock Bar Chart ───────────────────────────────
 def stock_bar_chart(top_n: int = 10):
     """Horizontal bar: medicine stock levels vs reorder level."""

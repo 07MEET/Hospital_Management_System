@@ -46,15 +46,9 @@ def show_dashboard(user):
         FROM medicines
         WHERE stock_quantity <= reorder_level
     """)
-
-    fraud = run_query_one("""
-        SELECT COUNT(*) AS c
-        FROM fraud_alerts
-        WHERE status='Open'
-    """)
     
     c1, c2, c3 = st.columns(3)
-    c4, c5, c6 = st.columns(3)
+    c4, c5 = st.columns(2)
 
     c1.metric("👥 Patients", patients["c"] if patients else 0)
     c2.metric("👨‍⚕️ Doctors", doctors["c"] if doctors else 0)
@@ -62,7 +56,6 @@ def show_dashboard(user):
 
     c4.metric("💰 Today's Revenue", f"₹{float(revenue['s'] or 0):,.2f}")
     c5.metric("💊 Low Stock", low_stock["c"] if low_stock else 0)
-    c6.metric("🚨 Fraud Alerts", fraud["c"] if fraud else 0)
 
     st.markdown("---")
     col1, col2 = st.columns(2)
@@ -136,9 +129,6 @@ def show_dashboard(user):
 
     if unpaid and unpaid["c"] > 0:
         alerts.append(f"🧾 Unpaid Bills: {unpaid['c']}")
-
-    if fraud and fraud["c"] > 0:
-        alerts.append(f"🚨 Open Fraud Alerts: {fraud['c']}")
 
     if alerts:
         for alert in alerts:

@@ -23,12 +23,12 @@ st.markdown(load_css(), unsafe_allow_html=True)
 
 # ── NAV CONFIG ────────────────────────────────────────────────
 NAV = {
-    "Admin":         ["📊 Dashboard","👨‍⚕️ Doctors","💊 Medicines","🚨 Fraud Alerts","📋 Audit Log","👤 User Management"],
+    "Admin":         ["📊 Dashboard","👨‍⚕️ Doctors","💊 Medicines","📋 Audit Log","👤 User Management"],
     "Doctor":        ["📊 Dashboard","📅 My Appointments","🩺 Diagnose & Prescribe","🔬 Lab Orders"],
     "Receptionist": ["📊 Dashboard", "👥 Patients", "📅 Appointments"],
     "Lab_Tech":      ["📊 Dashboard","⏳ Pending Orders","✅ Enter Results"],
     "Pharmacist":    ["📊 Dashboard","💊 Dispense Medicine","📦 Inventory","⚠️ Low Stock"],
-    "Billing_Staff": ["📊 Dashboard","🧾 Generate Bill","💳 Record Payment","📜 Bill History","🚨 Fraud Alerts"],
+    "Billing_Staff": ["📊 Dashboard","🧾 Generate Bill","💳 Record Payment","📜 Bill History"],
 }
 
 
@@ -148,7 +148,6 @@ def route(user: dict, page: str):
         if "Dashboard"     in page: from pageviews.admin import show_dashboard;  show_dashboard(user)
         elif "Doctors"     in page: from pageviews.admin import show_doctors;    show_doctors(user)
         elif "Medicines"   in page: from pageviews.admin import show_medicines;  show_medicines(user)
-        elif "Fraud"       in page: from pageviews.billing import show_fraud;    show_fraud(user)
         elif "Audit"       in page: from pageviews.admin import show_audit;      show_audit(user)
         elif "User Management"    in page: from pageviews.admin import show_settings;   show_settings(user)
 
@@ -179,7 +178,6 @@ def route(user: dict, page: str):
         elif "Generate"    in page: from pageviews.billing import show_generate;  show_generate(user)
         elif "Payment"     in page: from pageviews.billing import show_payment;   show_payment(user)
         elif "History" in page: from pageviews.billing import show_bill_history; show_bill_history(user)
-        elif "Fraud"       in page: from pageviews.billing import show_fraud;     show_fraud(user)
         
 
 

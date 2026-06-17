@@ -57,13 +57,8 @@ def show_dashboard(user):
         WHERE status != 'Paid'
     """)
 
-    fraud = run_query_one("""
-        SELECT COUNT(*) AS c
-        FROM fraud_alerts
-        WHERE status = 'Open'
-    """)
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3 = st.columns(3)
 
     c1.metric(
         "💰 Today's Revenue",
@@ -78,11 +73,6 @@ def show_dashboard(user):
     c3.metric(
         "🧾 Pending Bills",
         unpaid["c"]
-    )
-
-    c4.metric(
-        "🚨 Fraud Alerts",
-        fraud["c"]
     )
 
     st.markdown("---")
@@ -194,7 +184,7 @@ def show_generate(user):
                  use_container_width=True, disabled=not appt_sel):
         try:
             call_procedure("generate_bill", [appt_id, user["user_id"]])
-            st.success("✅ Bill generated! Fraud scan completed automatically.")
+            st.success("✅ Bill generated!")
             st.rerun()
         except Exception as e:
             st.error(f"❌ {e}")
@@ -269,149 +259,6 @@ def show_payment(user):
         else:
             st.info("No payment history yet.")
 
-
-def show_fraud(user):
-    require_role(["Billing_Staff", "Admin"])
-
-    st.markdown(
-        '<p class="page-title">🚨 Billing Fraud & Integrity Monitor</p>',
-        unsafe_allow_html=True
-    )
-
-    # --------------------------------------------------
-    # Run Fraud Scan
-    # --------------------------------------------------
-    col1, col2 = st.columns([1, 5])
-
-    with col1:
-        if st.button("🔍 Run Fraud Scan", use_container_width=True):
-            try:
-                run_query(
-                    "CALL run_full_fraud_scan();",
-                    fetch=False
-                )
-                st.success("✅ Fraud scan completed successfully.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ {e}")
-
-    st.markdown("---")
-
-    # --------------------------------------------------
-    # Load Alerts
-    # --------------------------------------------------
-    alerts = run_query("""
-        SELECT *
-        FROM vw_fraud_dashboard
-        ORDER BY detected_at DESC
-    """)
-
-    if not alerts:
-        st.success("✅ No fraud alerts detected.")
-        return
-
-    # --------------------------------------------------
-    # Metrics
-    # --------------------------------------------------
-    high = sum(1 for a in alerts if a["severity"] == "High")
-    open_alerts = sum(1 for a in alerts if a["status"] == "Open")
-    reviewed = sum(1 for a in alerts if a["status"] == "Reviewed")
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric("🔴 High Alerts", high)
-    c2.metric("📂 Open", open_alerts)
-    c3.metric("✅ Reviewed", reviewed)
-
-    st.markdown("---")
-
-    # --------------------------------------------------
-    # Fraud Table
-    # --------------------------------------------------
-    import pandas as pd
-
-    df = pd.DataFrame(alerts)
-
-    df = df.rename(columns={
-        "alert_id": "Alert ID",
-        "patient": "Patient",
-        "rule_triggered": "Fraud Rule",
-        "severity": "Severity",
-        "status": "Status",
-        "detected_at": "Detected At",
-        "details": "Details",
-        "total_amount": "Bill Amount"
-    })
-
-    st.dataframe(
-        df,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    # --------------------------------------------------
-    # Admin Actions
-    # --------------------------------------------------
-    if user["role"] == "Admin":
-
-        st.markdown("---")
-        st.subheader("🛠️ Update Alert Status")
-
-        open_ids = [
-            str(a["alert_id"])
-            for a in alerts
-            if a["status"] == "Open"
-        ]
-
-        if not open_ids:
-            st.info("No open alerts.")
-            return
-
-        col1, col2, col3 = st.columns([1, 1, 1])
-
-        with col1:
-            selected = st.selectbox(
-                "Alert ID",
-                open_ids
-            )
-
-        with col2:
-            new_status = st.selectbox(
-                "New Status",
-                ["Reviewed", "Closed"]
-            )
-
-        with col3:
-            st.write("")
-            st.write("")
-
-            if st.button(
-                "Update",
-                use_container_width=True
-            ):
-                try:
-                    run_query(
-                        """
-                        UPDATE fraud_alerts
-                        SET status=%s,
-                            reviewed_by=%s
-                        WHERE alert_id=%s
-                        """,
-                        [
-                            new_status,
-                            user["user_id"],
-                            int(selected)
-                        ],
-                        fetch=False
-                    )
-
-                    st.success(
-                        f"Alert #{selected} updated to '{new_status}'."
-                    )
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(str(e))
 
 def generate_invoice_pdf(bill_id):
     """
@@ -550,8 +397,7 @@ def generate_invoice_pdf(bill_id):
 
 def show(user, tab="dashboard"):
     require_role(["Billing_Staff", "Admin"])
-    if tab=="fraud":    show_fraud(user)
-    elif tab=="generate": show_generate(user)
+    if tab=="generate": show_generate(user)
     elif tab=="payment":  show_payment(user)
     else:               show_dashboard(user)
     
