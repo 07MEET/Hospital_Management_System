@@ -7,36 +7,44 @@ def load_css():
 *, *::before, *::after { box-sizing: border-box; }
 html, body, [class*="css"] {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
-    background: #f7f8fc !important;
+    background: #f8fafc !important;
     color: #1e293b !important;
 }
 
 /* ── Hide Streamlit default chrome ── */
 footer { visibility: hidden; }
 .block-container {
-    padding: 1.5rem 2.5rem 3rem !important;
-    max-width: 1300px !important;
+    padding-top: 5rem !important;
+    padding-right: 2rem !important;
+    padding-left: 2rem !important;
+    padding-bottom: 2rem !important;
+    max-width: 1400px !important;
 }
 
 /* ── Page Title ── */
 .page-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 0.25rem;
-    letter-spacing: -0.5px;
+    font-size: 2rem !important;
+    font-weight: 800 !important;
+    color: #0F172A !important;
+    margin: 0 0 1.5rem 0 !important;
+    padding: 0 !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.5px !important;
+    text-align: left !important;
 }
+
 .page-subtitle {
-    font-size: 0.88rem;
-    color: #64748b;
-    margin: 0 0 1.5rem;
+    font-size: 1rem;
+    color: #64748B;
+    text-align: center;
+    margin-bottom: 2rem;
 }
 
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
     background: #0f172a !important;
-    min-width: 230px !important;
-    max-width: 230px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
 }
 section[data-testid="stSidebar"] * { color: #94a3b8 !important; }
 section[data-testid="stSidebar"] .stButton > button {
@@ -60,9 +68,9 @@ section[data-testid="stSidebar"] .stButton > button:hover {
 [data-testid="metric-container"] {
     background: white !important;
     border: 1px solid #e2e8f0 !important;
-    border-radius: 12px !important;
+    border-radius: 16px !important;
     padding: 1.25rem !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.05) !important;
 }
 [data-testid="metric-container"] label {
     color: #64748b !important;
@@ -105,32 +113,30 @@ section[data-testid="stSidebar"] .stButton > button:hover {
     outline: none !important;
 }
 
-/* ── Buttons ── */
-.stButton > button {
-    border-radius: 8px !important;
+/* ── Buttons ───────────────────────────── */
+
+.stButton > button,
+.stFormSubmitButton > button {
+    border-radius: 10px !important;
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-weight: 600 !important;
-    font-size: 0.875rem !important;
-    transition: all 0.15s !important;
-    border: 1.5px solid transparent !important;
+    font-size: 0.9rem !important;
+    transition: all 0.2s ease !important;
+
+    background: #2563EB !important;
+    color: #FFFFFF !important;
+    border: 1px solid #2563EB !important;
 }
-.stButton > button[kind="primary"] {
-    background: #2563eb !important;
-    color: white !important;
-    border-color: #2563eb !important;
+
+.stButton > button:hover,
+.stFormSubmitButton > button:hover {
+    background: #1D4ED8 !important;
+    border-color: #1D4ED8 !important;
 }
-.stButton > button[kind="primary"]:hover {
-    background: #1d4ed8 !important;
-    border-color: #1d4ed8 !important;
-}
-.stButton > button[kind="secondary"] {
-    background: white !important;
-    color: #374151 !important;
-    border-color: #d1d5db !important;
-}
-.stButton > button[kind="secondary"]:hover {
-    background: #f9fafb !important;
-    border-color: #9ca3af !important;
+
+.stButton > button:focus,
+.stFormSubmitButton > button:focus {
+    box-shadow: none !important;
 }
 
 /* ── Tabs ── */

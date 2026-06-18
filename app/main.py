@@ -50,8 +50,14 @@ def show_login():
     col_l, col_m, col_r = st.columns([1.2, 1, 1.2])
     with col_m:
         st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown("## 🏥 MediCare HMS")
-        st.caption("Hospital Management System — Secure Digital Healthcare")
+        st.markdown("""
+    <div style="text-align:center;padding-bottom:10px;">
+        <h1 style="margin-bottom:0;color:#1E293B;">🏥 MediCare HMS</h1>
+        <p style="color:#64748B;font-size:16px;">
+            Smart Hospital Management Platform
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
         with st.form("login_form"):
@@ -73,17 +79,8 @@ def show_login():
                 else:
                     st.error(error)
 
-        with st.expander("Demo Accounts  (Password: Pass@1234)"):
-            st.markdown("""
-| Username | Role |
-|---|---|
-| `admin` | Admin |
-| `dr_sharma` | Doctor |
-| `reception1` | Receptionist |
-| `labtech1` | Lab Tech |
-| `pharma1` | Pharmacist |
-| `billing1` | Billing |
-            """)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.caption("🔒 Authorized hospital personnel only.")
 
 
 # ── Sidebar ───────────────────────────────────────────────────
