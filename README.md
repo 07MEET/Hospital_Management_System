@@ -1,170 +1,281 @@
-# 🏥 MediCare HMS — Hospital Management System
+# 🏥 MediCare HMS – Hospital Management System
 
-A **production-grade, multi-role hospital management system** built on PostgreSQL and Python (Streamlit). All critical business logic — scheduling, billing, fraud detection, and auditing — lives at the database layer via PL/pgSQL stored procedures, triggers, and functions, making the system robust regardless of which client connects.
+A comprehensive **Hospital Management System (HMS)** built using **Python, Streamlit, and PostgreSQL**. The platform streamlines hospital operations through role-based workflows for patient registration, appointment scheduling, diagnosis, laboratory management, pharmacy inventory, billing, payments, and administrative monitoring.
 
----
-
-## 🚀 Live Features
-
-| Role | Capabilities |
-|------|-------------|
-| **Admin** | Full dashboard, patient/doctor management, fraud alerts, audit log, settings |
-| **Doctor** | Appointments, diagnose & prescribe, lab orders |
-| **Receptionist** | Register patients, book appointments, today's queue |
-| **Lab Technician** | View pending orders, enter results |
-| **Pharmacist** | Dispense medicines, inventory management, low-stock alerts |
-| **Billing Staff** | Generate bills, record payments, fraud dashboard |
+Designed with a modular architecture and a normalized relational database, the project demonstrates practical software engineering concepts including **Role-Based Access Control (RBAC)**, **stored procedures**, **database triggers**, **audit logging**, and **transaction-safe workflows**.
 
 ---
 
-## 🛠️ Tech Stack
+# ✨ Key Features
+
+## 👥 Role-Based Access Control
+
+The system provides dedicated dashboards and permissions for six user roles:
+
+- 👨‍💼 Admin
+- 👨‍⚕️ Doctor
+- 🧑‍💼 Receptionist
+- 🔬 Lab Technician
+- 💊 Pharmacist
+- 💳 Billing Staff
+
+Each role has access only to the modules required for its responsibilities.
+
+---
+
+## 🧑‍⚕️ Patient Management
+
+- Register and manage patient records
+- Store demographic and contact information
+- Maintain emergency contact details
+- Support insurance information
+- Search patients by name, phone number, or ID
+
+---
+
+## 📅 Appointment Management
+
+- Book appointments with doctors
+- Prevent duplicate appointment slots
+- Manage appointment lifecycle
+- Track appointment status
+- View daily schedules
+
+---
+
+## 🩺 Doctor Module
+
+- View assigned appointments
+- Record diagnoses
+- Prescribe medicines
+- Order laboratory tests
+- Maintain patient consultation history
+
+---
+
+## 🔬 Laboratory Module
+
+- View pending laboratory orders
+- Enter test results
+- Flag abnormal findings
+- Automatically update test status
+
+---
+
+## 💊 Pharmacy Module
+
+- Dispense prescribed medicines
+- Manage medicine inventory
+- Monitor low-stock medicines
+- Restock existing inventory
+- Track stock quantities
+
+---
+
+## 💳 Billing & Payments
+
+- Generate bills for completed consultations
+- Include consultation, laboratory, and pharmacy charges
+- Record payments using multiple payment modes
+- Maintain billing history
+- Track payment status
+
+---
+
+## 📋 Audit Logging
+
+Automatically records critical database operations:
+
+- INSERT
+- UPDATE
+- DELETE
+
+The audit trail stores previous and updated row snapshots using PostgreSQL `JSONB` for improved traceability and accountability.
+
+---
+
+# 🛠️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| **Frontend** | Python · Streamlit · Plotly |
-| **Backend Logic** | PL/pgSQL · Stored Procedures · Trigger Functions |
-| **Database** | PostgreSQL 15+ |
-| **Security** | RBAC (6 roles) · Row-Level Security · Append-only Audit Log |
-| **ORM / Connector** | psycopg2 · psycopg2-pool |
+|---------|------------|
+| Frontend | Streamlit |
+| Backend | Python |
+| Database | PostgreSQL |
+| Visualization | Plotly |
+| Data Processing | Pandas |
+| Database Driver | psycopg2 |
+| Styling | Custom CSS |
 
 ---
 
-## 🗄️ Database Architecture
+# 🗄️ Database Concepts Demonstrated
 
-- **16 core tables** across Identity, Clinical, Pharmacy, Lab, Billing, and Audit domains
-- **5 triggers** — appointment conflict prevention, low-stock alerts, lab result auto-flagging, real-time fraud detection, comprehensive audit logging
-- **4 stored procedures** — `register_patient()`, `book_appointment()`, `generate_bill()`, `record_payment()`
-- **4 user-defined functions** — age calculation, slot availability check, payment deduction, patient status
-- **5 views** — OPD queue, patient history, billing summary, fraud dashboard, low-stock monitor
-- **7 fraud detection functions** + master scan procedure
-- **RBAC** (6 PostgreSQL roles) + **Row-Level Security** on 4 tables
-- **JSONB audit trail** capturing full before/after row snapshots on every data change
-- **8 B-Tree indexes** for high-frequency query optimization
+- Normalized relational schema
+- Primary and foreign keys
+- CHECK constraints
+- Views
+- Stored procedures
+- Trigger functions
+- JSONB-based audit logging
+- Transaction-safe operations
+- Role-Based Access Control (RBAC)
+- Indexed queries for improved performance
 
 ---
 
 ## 📁 Project Structure
 
-```
+```text
 Hospital-Management-System/
 ├── app/
-│   ├── main.py              # App entry point, routing, session management
-│   ├── auth.py              # Login, session, timeout handling
-│   ├── db.py                # Connection pool, query utilities
-│   ├── validators.py        # Input validation
-│   ├── styles.py            # Custom CSS
-│   ├── components.py        # Shared UI components
+│   ├── main.py                    # Application entry point and routing
+│   ├── auth.py                    # Authentication and session management
+│   ├── db.py                      # PostgreSQL connection and query utilities
+│   ├── validators.py              # Input validation helpers
+│   ├── styles.py                  # Global UI styling
+│   │
+│   ├── components/
+│   │   └── (shared reusable UI components)
+│   │
 │   └── pageviews/
-│       ├── admin.py         # Admin dashboard
-│       ├── doctor.py        # Doctor dashboard
-│       ├── receptionist.py  # Receptionist dashboard
-│       ├── billing.py       # Billing dashboard
-│       ├── lab_tech.py      # Lab technician dashboard
-│       ├── pharmacist.py    # Pharmacist dashboard
-│       └── components/      # Shared page components (charts, patient card, sidebar)
+│       ├── admin.py               # Admin module
+│       ├── doctor.py              # Doctor module
+│       ├── receptionist.py        # Receptionist module
+│       ├── billing.py             # Billing & payment module
+│       ├── pharmacist.py          # Pharmacy & inventory module
+│       ├── lab_tech.py            # Laboratory module
+│       │
+│       └── components/
+│           ├── charts.py          # Dashboard visualizations
+│           ├── patient_card.py    # Reusable patient information cards
+│           └── sidebar.py         # Role-based sidebar navigation
+│
 ├── database/
-│   ├── tables.sql           # Schema — 16 tables with constraints
-│   ├── triggers.sql         # 5 PL/pgSQL trigger functions
-│   ├── procedures.sql       # 4 stored procedures
-│   ├── functions.sql        # 4 user-defined functions
-│   ├── views.sql            # 5 analytical views
-│   ├── rbac.sql             # RBAC roles, grants, Row-Level Security policies
-│   ├── fraud.sql            # 7 fraud detection functions + master scan
-│   └── sample_data.sql      # Seed data for testing
+│   ├── tables.sql                 # Database schema and constraints
+│   ├── functions.sql              # User-defined SQL functions
+│   ├── procedures.sql             # PL/pgSQL stored procedures
+│   ├── triggers.sql               # Trigger functions and trigger definitions
+│   ├── views.sql                  # Database views for reporting
+│   ├── rbac.sql                   # Role-based access configuration
+│   └── sample_data.sql            # Sample data for testing
+│
 ├── assets/
-│   └── logo.svg
-├── requirements.txt
-└── README.md
+│   └── logo.svg                   # Application assets
+│
+├── requirements.txt               # Python dependencies
+└── README.md                      # Project documentation
 ```
 
 ---
 
-## ⚙️ Setup & Installation
+# 🚀 Getting Started
 
-### Prerequisites
-- Python 3.10+
-- PostgreSQL 15+
+## Clone the repository
 
-### 1. Clone the repository
 ```bash
 git clone https://github.com/07MEET/Hospital-Management-System.git
 cd Hospital-Management-System
 ```
 
-### 2. Install Python dependencies
+## Install dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Set up the database
-```bash
-# Create the database
-psql -U postgres -c "CREATE DATABASE HMS;"
+## Configure PostgreSQL
 
-# Run SQL files in order
-psql -U postgres -d HMS -f database/tables.sql
-psql -U postgres -d HMS -f database/functions.sql
-psql -U postgres -d HMS -f database/views.sql
-psql -U postgres -d HMS -f database/triggers.sql
-psql -U postgres -d HMS -f database/procedures.sql
-psql -U postgres -d HMS -f database/rbac.sql
-psql -U postgres -d HMS -f database/fraud.sql
-psql -U postgres -d HMS -f database/sample_data.sql
-```
+Update the database credentials in `app/db.py` according to your local PostgreSQL setup.
 
-### 4. Configure the database connection
-Edit `app/db.py` and update with your PostgreSQL credentials:
-```python
-DB_CONFIG = {
-    "host":     "localhost",
-    "database": "HMS",
-    "user":     "postgres",
-    "password": "your_password",   # ← update this
-    "port":     5432
-}
-```
+## Initialize the database
 
-### 5. Run the application
+Execute the SQL scripts from the `database/` directory in the appropriate order.
+
+## Run the application
+
 ```bash
 cd app
 streamlit run main.py
 ```
 
-Visit `http://localhost:8501` in your browser.
+The application will be available at:
 
-### Demo Credentials
-| Role | Username | Password |
-|------|----------|----------|
-| Admin | `admin` | `Pass@1234` |
-| Doctor | `kartik` | `Pass@1234` |
-| Receptionist | `reception1` | `Pass@1234` |
-| Lab Tech | `labtech1` | `Pass@1234` |
-| Pharmacist | `pharma1` | `Pass@1234` |
-| Billing | `billing1` | `Pass@1234` |
+```
+http://localhost:8501
+```
 
 ---
 
-## 🔐 Security Highlights
+# 🔐 Security & Validation
 
-- **Role-Based Access Control (RBAC)** — 6 PostgreSQL roles with fine-grained table-level GRANT/REVOKE
-- **Row-Level Security (RLS)** — Doctors are filtered at the DB layer to see only their own patients
-- **Append-only Audit Log** — A PostgreSQL RULE makes `audit_log` physically immutable; even admins cannot delete records
-- **Session Management** — UUID session keys with 30-minute TTL and failed-attempt lockout
-- **Real-time Fraud Detection** — 4 rules checked on every bill finalization (duplicate billing, charge spikes, insurance overcharge, after-hours billing)
+- Role-Based Access Control (RBAC)
+- Session-based authentication
+- Server-side input validation
+- Database constraints and checks
+- Audit logging for critical operations
+- Duplicate appointment prevention
+- Payment validation and overpayment checks
 
 ---
 
-## 🧠 Advanced Database Concepts Demonstrated
+# 📊 Core Workflows
 
-| Concept | Implementation |
-|---------|---------------|
-| BEFORE / AFTER Triggers | Slot conflict prevention, low-stock alerts, audit logging |
-| Trigger WHEN clause | Lab result auto-flagging fires only on NULL → non-NULL transition |
-| Stored Procedures | Atomic multi-step workflows with full validation chains |
-| Window Functions | `AVG / ROW_NUMBER / RANK / COUNT OVER (PARTITION BY ...)` for fraud analytics |
-| Recursive CTEs | Drug interaction checker using `CROSS JOIN` on patient prescriptions |
-| RBAC + RLS | Two-layer security — table-level permissions + row-level filtering |
-| JSONB Storage | Full row snapshots (`row_to_json()::JSONB`) in audit trail |
-| Indexing Strategy | 8 B-Tree indexes on high-frequency filter columns |
-| Transaction Safety | All procedures are atomic — RAISE EXCEPTION rolls back on failure |
-| UUID Primary Keys | `gen_random_uuid()` for tamper-resistant session management |
+### Patient Journey
+
+```
+Patient Registration
+        │
+        ▼
+Appointment Booking
+        │
+        ▼
+Doctor Consultation
+        │
+ ┌──────┴─────────┐
+ │                │
+ ▼                ▼
+Prescription   Lab Order
+ │                │
+ └──────┬─────────┘
+        ▼
+Bill Generation
+        │
+        ▼
+Payment Recording
+```
+
+---
+
+# 🎯 Learning Outcomes
+
+This project demonstrates practical experience in:
+
+- Full-stack application development
+- PostgreSQL database design
+- Role-Based Access Control (RBAC)
+- Stored procedures and database triggers
+- Transaction-safe business workflows
+- Healthcare information systems
+- Dashboard development and visualization
+- Modular software architecture
+- Input validation and data integrity
+
+---
+
+# 👨‍💻 Author
+
+**Meet Patel**  
+B.Tech – Artificial Intelligence & Machine Learning
+
+**Areas of Interest**
+- Machine Learning
+- Deep Learning
+- Generative AI
+- Data Science
+- Backend Development
+
+---
+
+# 📄 License
+
+This project is intended for educational, portfolio, and learning purposes.
