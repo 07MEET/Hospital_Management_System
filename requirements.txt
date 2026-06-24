@@ -1,7 +1,6 @@
-import psycopg2
-import psycopg2.extras
-import psycopg2.pool
-import streamlit as st
-import logging
-from dotenv import load_dotenv
-import os
+streamlit>=1.32,<2.0
+plotly>=5.18,<7.0
+pandas>=2.0,<3.0
+psycopg2-binary>=2.9,<3.0
+reportlab>=4.0,<5.0
+python-dotenv>=1.0,<2.0
